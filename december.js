@@ -2,6 +2,11 @@
 
 /* ----- DETAILED BASIC CONFIGURATION ----- */
 
+// Absolute path to the folder this script is running in. Helpful for adding relative paths to images
+let SCRIPT_FOLDER_URL = document.currentScript.src.split('/');
+SCRIPT_FOLDER_URL.pop();
+SCRIPT_FOLDER_URL = SCRIPT_FOLDER_URL.join('/');
+
 var adPercent = 0.1;
 
 var Favicon_URL = 'https://cdn.jsdelivr.net/gh/HappyHub1/December/Images/tiger.png';
@@ -15,6 +20,43 @@ var ThemesCSS = [
 
 var TopUserLogo = [
 ];
+
+var ADVERTISEMENTS = [
+	"আৡঊসঠচঈ1",
+	"আৡঊসঠচঈ2",
+	"আৡঊসঠচঈ3",
+	"আৡঊসঠচঈ4",
+	"আৡঊসঠচঈ5",
+	"আৡঊসঠচঈ6",
+	"আৡঊসঠচঈ7",
+	"আৡঊসঠচঈ8",
+	"আৡঊসঠচঈ9",
+	"আৡঊসঠচঈ10",
+	"আৡঊসঠচঈ11",
+	"আৡঊসঠচঈ12",
+	"আৡঊসঠচঈ13",
+	"আৡঊসঠচঈ14",
+	"আৡঊসঠচঈ15",
+	"আৡঊসঠচঈ16",
+	"আৡঊসঠচঈ17",
+	"আৡঊসঠচঈ18",
+	"আৡঊসঠচঈ19",
+	"আৡঊসঠচঈ20",
+	"আৡঊসঠচঈ21",
+	"আৡঊসঠচঈ22",
+	"আৡঊসঠচঈ23",
+	"আৡঊসঠচঈ24",
+	"আৡঊসঠচঈ25",
+	"আৡঊসঠচঈ26",
+	"আৡঊসঠচঈ27",
+	"আৡঊসঠচঈ28",
+	"আৡঊসঠচঈ29"
+];
+
+let ANTISPAMREGEX = /(?![^<Ð]*[>Ð])\b(\w+)\b\s*(?=.*\b\1\b)|(?![Ð])[^\x00-\x80]+/gi;
+let TEAMCOLORREGEX = /( |)<span style="display:none" class="teamColorSpan">.+/gi;
+
+const CURRENTBOT = "Happy";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -100,8 +142,11 @@ var CHATMAXSIZE = getOrDefault(CHANNEL.name + "_CHATMAXSIZE", 150);	// Override 
 // The interval of time (in ms) to flush messages to the screen
 var NICO_NICO_MESSAGE_QUEUE_TIME = getOrDefault(CHANNEL.name + "_NICO_NICO_MESSAGE_QUEUE_TIME", 100);
 var EFFECTSOFF = getOrDefault(CHANNEL.name + "_EFFECTSOFF", false);
-var ADVERTISEMENTS = getOrDefault(CHANNEL.name + "_ADVERTISEMENTS", []);
-var LINKS = getOrDefault(CHANNEL.name + "_LINKS", {});
+var AUTOREFRESH = getOrDefault(CHANNEL.name + "_AUTOREFRESH", false);
+var EMBEDVID = getOrDefault(CHANNEL.name + "_EMBEDVID", true);
+var AUTOVID = getOrDefault(CHANNEL.name + "_AUTOVID", true);
+var LOOPWEBM = getOrDefault(CHANNEL.name + "_LOOPWEBM", true);
+var ANTISPAM = getOrDefault(CHANNEL.name + "_ANTISPAM", false);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -836,82 +881,89 @@ $("#useroptions .modal-footer button:nth-child(1)").on("click", function() {
 // changing channel name
 ChannelName_Caption !== "" ? $(".navbar-brand").html(ChannelName_Caption) : '';
 
-var updateInterval;
-
-function updateLinks() {
-	var url = "https://spreadsheets.google.com/feeds/cells/1ae7MafgvgD3br2O4YQqMGBKff40eciKSu_U8rttiS00/oiixqoi/public/basic?alt=json";
-	$.ajax({
-		url:url,
-		dataType:"jsonp",
-		success:function(data) {
-			LINKS = JSON && JSON.parse(data.feed.entry[0].content.$t) || $.parseJSON(data.feed.entry[0].content.$t);
-            ADVERTISEMENTS =  JSON && JSON.parse(data.feed.entry[1].content.$t) || $.parseJSON(data.feed.entry[1].content.$t);
-			setOpt(CHANNEL.name + "_LINKS", LINKS);
-            setOpt(CHANNEL.name + "_ADVERTISEMENTS", ADVERTISEMENTS);
-		}
-	});
-}
-
-if (LINKS.length === 0) {
-	updateLinks();
-} else {
-	setTimeout(updateLinks, 500 + Math.floor(4500 * Math.random()));
-}
-clearInterval(updateInterval);
-updateInterval = setInterval(updateLinks, 150000 + Math.floor(180000 * Math.random()));
+LINKS = setOpt(CHANNEL.name + "_LINKS", {});
 
 var rdmLinkInterval = false;
-var iLinkRefreshes = 0;
-var activeLink = "";
+var iRefreshes = 0;
 var videoElement = false;
 
-function selectRandomLink(data) {
-	videoElement = document.getElementById("ytapiplayer_html5_api") || false;
-	activeLink = data.id;
-	
-	if (data.type !== "fi" || !videoElement || iLinkRefreshes > 15) {
-		clearInterval(rdmLinkInterval);
-		rdmLinkInterval = false;
-		iLinkRefreshes = 0;
-	}
+function clearAutoRefresh() {
+	clearInterval(rdmLinkInterval);
+	rdmLinkInterval = false;
+	iRefreshes = 0;
+}
 
-	if (data.type === "fi") {
-		randomizeLink(activeLink, videoElement);
+autorefreshbtn = $('<button id="autorefreshbtn" class="btn btn-sm ' + (!AUTOREFRESH ? 'btn-danger' : 'btn-default') + '" title="Toggle to auto refresh the player. Please note this is still experimental.">Auto Refresh ' + (!AUTOREFRESH ? 'OFF' : 'ON') + '</button>')
+	.appendTo("#playercontrols")
+	.on("click", function() {
+		AUTOREFRESH = !AUTOREFRESH;
+		setOpt(CHANNEL.name + "_AUTOREFRESH", AUTOREFRESH);
+		if (AUTOREFRESH) {
+			this.className = "btn btn-sm btn-default";
+			this.textContent = "Auto Refresh ON";
+		} else {
+			this.className = "btn btn-sm btn-danger";
+			this.textContent = "Auto Refresh OFF";
+			clearAutoRefresh();
+		}
+	});
 
-		rdmLinkInterval = setInterval(function() {
-			console.log("this is an interval");
+
+function autoRefreshPlayer(data) {
+	if (typeof data.type !== "undefined") {
+		if (AUTOREFRESH && data.type === "fi" && !vidRemoved) {
 			videoElement = document.getElementById("ytapiplayer_html5_api") || false;
+			clearAutoRefresh();
 
-			if (iLinkRefreshes > 15 || videoElement.readyState === 4) {
-				clearInterval(rdmLinkInterval);
-				rdmLinkInterval = false;
-				iLinkRefreshes = 0;
-			} else {
-				randomizeLink(activeLink, videoElement);
-			}
-		}, 1550 + Math.floor(700 * Math.random()));
-	}
+			if (!rdmLinkInterval) {
+				rdmLinkInterval = setInterval(function() {
+					iRefreshes++;
+					videoElement = document.getElementById("ytapiplayer_html5_api") || false;
+					vidError = videoElement.error || false;
 
-	function randomizeLink(PLLink, vidElemPassed) {
-		for (var i = 0; i < LINKS["DropboxURLs"].length; i++) {
-			if (PLLink.indexOf(LINKS["DropboxURLs"][i][0]) > -1) {
-				rdmIndex = Math.floor(Math.random() * LINKS["DropboxURLs"][i].length);
-				rdmLink = LINKS["DropboxURLs"][i][rdmIndex];
-				if (rdmLink.indexOf("dropbox.com") > -1 && rdmLink[rdmLink.length-1] === "/") {
-					rdmLink += "placeholder.mp4";
-				}
-				console.log(i + "\t" + rdmLink);
-				setTimeout(function() {vidElemPassed.src = rdmLink;}, 250);
-				break;
+					if (vidError) {
+						document.getElementById("mediarefresh").click();
+					} else if (iRefreshes > 15 || videoElement.readyState !== 0) {
+						clearAutoRefresh();
+					}
+				}, 2050 + Math.floor(700 * Math.random()));
 			}
 		}
-		iLinkRefreshes++;
 	}
 }
 
-setTimeout(function() {
-	document.getElementById("mediarefresh").click();
-}, 500);
+_loadMediaPlayer = loadMediaPlayer;
+loadMediaPlayer = function(data) {
+	selectRandomLink(data);
+    _loadMediaPlayer(data);
+	autoRefreshPlayer(data);
+}
+
+_handleMediaUpdate = handleMediaUpdate;
+handleMediaUpdate = function(data) {
+	selectRandomLink(data);
+    _handleMediaUpdate(data);
+	autoRefreshPlayer(data);
+}
+
+const PlaylistDelimiter = "???streamurl???";
+
+function selectRandomLink(data) {
+	if (typeof data.id !== "undefined") {
+		if (data.type === "fi") {
+			if (data.id.indexOf(PlaylistDelimiter) > -1) {
+				LeaderLink = data.id;
+				var rdmLinks = data.id.split(PlaylistDelimiter);
+				data.id = rdmLinks[Math.floor(Math.random() * rdmLinks.length)];
+				setTimeout(function () {
+					PLAYER.mediaId = LeaderLink; // Media ID must match playlist link or else this does not let you set the time.
+				}, 1000);
+			}
+		}
+	}
+}
+
+setTimeout(document.getElementById("mediarefresh").click(), 500);
 
 function setPanelProperties(div) {
 	height = $("#userlist").height();
@@ -974,7 +1026,7 @@ function makeChatPanel() {
 			turnOffBtn();
 		});
 
-	$("#chatfunc-dropdown").append('<div id="imgsize">Adjust image size</div>');
+	$("#chatfunc-dropdown").append('<div id="imgsize">Adjust image/webm size</div>');
 	imgsizediv = $("<div/>").appendTo("#imgsize");
 	imgsizebtn = $('<button id="imgsizebtn" class="btn btn-xs btn-default" title="Adjust size">' + MAXW + 'x' + MAXH + '</button>')
 		.appendTo(imgsizediv)
@@ -1035,9 +1087,14 @@ $("#layout-link li:nth-child(2) a").on("click", function() {
 	$("#transformationform, #modeform").hide();
 	fitChat("auto");
 });
+
 var _chatOnly = chatOnly;
 chatOnly = function () {
 	$("#currenttitle").css({"display":"inline","border-width":"0px"}).appendTo($("#chatheader"));
+	webmthing = $("<div/>").appendTo($('<div id="webmthing">Toggle webms</div>').appendTo(chatfunc));
+	embedvid.removeClass("btn-sm").addClass("btn-xs").appendTo(webmthing);
+	loopwebm.removeClass("btn-sm").addClass("btn-xs").appendTo(webmthing);
+	autovid.removeClass("btn-sm").addClass("btn-xs").appendTo(webmthing);
 	_chatOnly();
 	scrollChat();
 	if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
@@ -1051,7 +1108,11 @@ chatOnly = function () {
 	}
 };
 
+var	vidRemoved = false;
+
 function removeVideo() {
+	removeNicoText();
+	vidRemoved = true;
 	$("#currenttitle").css({"display":"inline","border-width":"0px"}).appendTo($("#chatheader"));
 	try {
 		PLAYER.setVolume(0);
@@ -1071,6 +1132,7 @@ function removeVideo() {
 
 
 function restoreVideo() {
+	vidRemoved = false;
 	$("#transformationform, #modeform").show();
 	$("#chatwrap").removeClass("pull-right").addClass("col-lg-5 col-md-5").removeClass("col-md-12");
 	$("#videowrap_disabled").attr("id","videowrap").show();
@@ -1301,7 +1363,8 @@ hidehfbtn = $('<button id="hidehf-btn" class="btn btn-sm btn-default" title="Hid
 leftfooter = $('<span id="leftfooter"></span>').appendTo("footer .container");
 
 // updating user visits
-setOpt(CHANNEL.name + "_visits", USERVISITS++);
+USERVISITS++;
+setOpt(CHANNEL.name + "_visits", USERVISITS);
 
 $('<span>My visits: </span><span class="badge footer-badge">' + USERVISITS + '</span><span> / </span>')
 	.appendTo(leftfooter);
@@ -1415,7 +1478,6 @@ socket.on("changeMedia", function(data) {
 		TitleBarDescription_Caption.length < 1 ? TitleBarDescription_Caption = 'Currently Playing:' : '';
 		$("#currenttitle").text(TitleBarDescription_Caption + " " + data.title);
 	}
-	selectRandomLink(data);
 });
 socket.on("setUserRank", function() {
 	toggleClearBtn();
@@ -1461,7 +1523,7 @@ if (HIDEHF) {
 	hidehfbtn.attr("title","Show Header and Footer");
 }
 
-function currentVideoTime(data) {
+function getVideoTime(data) {
 	clearInterval(ADDONESECOND);
 	hour = Math.floor(data.currentTime / 3600);
 	minute = Math.floor(data.currentTime / 60 % 60);
@@ -1502,9 +1564,10 @@ currenttimebtn = $('<button id="findtime" class="btn btn-xs btn-default" title="
 		if ($(this).text() !== 'Video Time') {
 			$(this).text('Video Time');
 			clearInterval(ADDONESECOND);
-			socket.removeListener("mediaUpdate", currentVideoTime);
+			socket.removeListener("mediaUpdate", getVideoTime);
 		} else {
-			socket.on("mediaUpdate", currentVideoTime);
+			getVideoTime({currentTime:getCurrentPlayerTime()});
+			socket.on("mediaUpdate", getVideoTime);
 		}
 });
 
@@ -1518,7 +1581,7 @@ Callbacks.usercount = function(count) {
             text += "s";
         }
         $("#usercount").text(text);
-		
+
 	if (MAXUSERS < count) {
 		MAXUSERS = count;
 		$("#maxusers").text(MAXUSERS + " max autists");
@@ -1684,16 +1747,16 @@ nicobtn = $('<button id="nicobtn" class="btn btn-sm ' + (!NICORIPOFF ? 'btn-dang
 		if (!NICORIPOFF) {
 			this.className = "btn btn-sm btn-danger";
 			removeNicoText();
-			socket.removeListener("chatMsg", addNicoNicoMessageDataToQueue);
+			//socket.removeListener("chatMsg", addNicoNicoMessageDataToQueue);
 			socket.removeListener("clearchat", removeNicoText);
 		} else {
 			this.className = "btn btn-sm btn-success";
-			socket.on("chatMsg", addNicoNicoMessageDataToQueue);
+			//socket.on("chatMsg", addNicoNicoMessageDataToQueue);
 			socket.on("clearchat", removeNicoText);
 		}
 	});
 if (NICORIPOFF) {
-	socket.on("chatMsg", addNicoNicoMessageDataToQueue);
+	//socket.on("chatMsg", addNicoNicoMessageDataToQueue);
 	socket.on("clearchat", removeNicoText);
 }
 
@@ -1879,7 +1942,7 @@ var NicoNicoCommentManager = function () {
 	_createClass(NicoNicoCommentManager, [{
 		key: 'cleanup',
 		value: function cleanup() {
-			for (var i = 0; i < this._comments; i++) {
+			for (var i = 0; i < this._comments.length; i++) {
 				var comment = this._comments[i];
 				comment.cleanup();
 			}
@@ -2190,7 +2253,7 @@ function formatChatMessage(data, last) {
 		(CLIENT.rank > 2 && !RELOADED) ? socket.emit("chatMsg", {msg:'/kick ' + data.username + ' Quit trying to reload and enable javascript.'}) : RELOADED = false;
 	}
 
-	if (CLIENT.rank > 2 && (data.msg.indexOf('/snow') === 0 || data.msg.indexOf('/padoru') === 0 || data.msg.indexOf('/erabe') === 0 || data.msg.indexOf('/effects_stop') === 0 || data.msg.indexOf('/presents') === 0)) {
+	if (CLIENT.rank > 2 && (data.msg.indexOf('/snow') === 0 || data.msg.indexOf('/padoru') === 0 || data.msg.indexOf('/erabe') === 0 || data.msg.indexOf('/effect') === 0 || data.msg.indexOf('/presents') === 0 || data.msg.indexOf("আৡঊসঠচঈ") > -1)) {
 		var FOUNDMOD = false;
 		$("#userlist").find('span[class$=userlist_owner],span[class$=userlist_siteadmin]').each(function() {
 			if ($(this).text() === data.username) {
@@ -2207,7 +2270,7 @@ function formatChatMessage(data, last) {
 			var msg_parts = data.msg.trim().replace(/\s\s+/igm, ' ').split(' ');
 			var msg_command = msg_parts[0].substring(1,msg_parts[0].length);
 			var msg_time = 0;
-			
+
 			if (msg_command === "effects_stop" || msg_parts[1] === "off") {
 				effectClasses = "off";
 			} else {
@@ -2225,7 +2288,7 @@ function formatChatMessage(data, last) {
 					});
 				}, msg_time*1000);
 			}
-			
+
 			effectClasses = effectClasses.trim();
 			if (!classElementTester.test(MOTD)) {
 				MOTD = defaultEffectsHTMLFront + effectClasses + defaultEffectsHTMLBack + MOTD;
@@ -2237,7 +2300,7 @@ function formatChatMessage(data, last) {
 			});
 		}*/
 	}
-	
+
 	if (data.msg.length <= prevLength+1 && data.msg.length >= prevLength-1 && data.username !== CLIENT.name) {
 		stop = stop - .1;
 		if (stop < 0) {
@@ -2261,23 +2324,42 @@ function formatChatMessage(data, last) {
 	} else {
 		teamClass = '';
 	}
-	if ($('#btn_anon').hasClass('label-success')){
+	/*if ($('#btn_anon').hasClass('label-success')){
 		teamClass += ' anon';
-	}
-
-	data.msg = data.msg.replace(/ <span style="display:none" class="teamColorSpan">.+/gi,"")
+	}*/
 
     // Phase 1: Determine whether to show the username or not
     var skip = data.username === last.name;
-    if(data.meta.addClass === "server-whisper")
+    if (data.meta.addClass === "server-whisper")
         skip = true;
     // Prevent impersonation by abuse of the bold filter
-    if(data.msg.match(/^\s*<strong>\w+\s*:\s*<\/strong>\s*/))
+    if (data.msg.match(/^\s*<strong>\w+\s*:\s*<\/strong>\s*/))
         skip = false;
     if (data.meta.forceShowName)
         skip = false;
 
+	data.msg = stripImages(data.msg);
     data.msg = execEmotes(data.msg);
+	
+	if (CLIENT.name === CURRENTBOT) {
+		data.msg2 = data.msg;
+	}
+
+	if (ANTISPAM && PLAYER.mediaLength > 600) {
+		data.msg = data.msg.replace(TEAMCOLORREGEX,"").replace(ANTISPAMREGEX,"").trim();
+		if (data.msg.length === 0) {
+			return;
+		}
+		if (data.msg.replace(" ","").length > 25) {
+			var splitMsg = data.msg.split(" ");
+			for (var iChar = 0; iChar < splitMsg.length; iChar++) {
+				if (splitMsg[iChar].length > 25) {
+					data.msg = data.msg.substring(0, 25);
+					break;
+				}
+			}
+		}
+	}
 
     last.name = data.username;
     var div = $("<div/>");
@@ -2300,24 +2382,24 @@ function formatChatMessage(data, last) {
 
     // Add username
     var name = $("<span/>");
-    if (!skip) {
+    if (!skip || UCONF.showname === "yes") {
         name.appendTo(div);
-    }
-    $("<strong/>").addClass("username " + teamClass).text(data.username + ": ").appendTo(name);
-    if (data.meta.modflair) {
-        name.addClass(getNameColor(data.meta.modflair));
-    }
-    if (data.meta.addClass && data.meta.addClassToNameAndTimestamp) {
-        name.addClass(data.meta.addClass);
-    }
-    if (data.meta.superadminflair) {
-        name.addClass("label")
-            .addClass(data.meta.superadminflair.labelclass);
-        $("<span/>").addClass(data.meta.superadminflair.icon)
-            .addClass("glyphicon")
-            .css("margin-right", "3px")
-            .prependTo(name);
-    }
+		$("<strong/>").addClass("username " + teamClass).text(data.username + ": ").appendTo(name);
+		if (data.meta.modflair) {
+			name.addClass(getNameColor(data.meta.modflair));
+		}
+		if (data.meta.addClass && data.meta.addClassToNameAndTimestamp) {
+			name.addClass(data.meta.addClass);
+		}
+		if (data.meta.superadminflair) {
+			name.addClass("label")
+				.addClass(data.meta.superadminflair.labelclass);
+			$("<span/>").addClass(data.meta.superadminflair.icon)
+				.addClass("glyphicon")
+				.css("margin-right", "3px")
+				.prependTo(name);
+		}
+	}
 
     // Add the message itself
     var message = $("<span/>").appendTo(div);
@@ -2334,6 +2416,10 @@ function formatChatMessage(data, last) {
     if (data.meta.shadow) {
         div.addClass("chat-shadow");
     }
+
+	if (NICORIPOFF) {
+		addNicoNicoMessageDataToQueue(data);
+	}
 
     return div;
 }
@@ -2497,8 +2583,8 @@ $("#chatline").keydown(function(ev) {
 				});
 			} else {
 				var t = msg.trim();
-				if ($('#teamcolor').val() && t.indexOf("/") !== 0) {
-					t = t + ' Ð' + $('#teamcolor').val() + 'Ð';
+				if (TEAMCOLOR && t.indexOf("/") !== 0) {
+					t = t + ' Ð' + TEAMCOLOR + 'Ð';
 				}
 				socket.emit("chatMsg", {
 					msg: t,
@@ -2544,168 +2630,7 @@ $("#chatline").keydown(function(ev) {
 });
 
 if (CLIENT.name === "Happy") {
-	var msgLength = 10000;
-	var userLength = 10000;
-	var playlistLength = 5000;
-	var aMessagesDefault = [["Timestamp", "Username", "Message"]];
-	var aMessages = getOrDefault(CHANNEL.name + "_MSGS", aMessagesDefault.slice(0));
-	var aUserCountDefault = [["Timestamp", "Usercount"]];
-	var aUserCount = getOrDefault(CHANNEL.name + "_USERCOUNT", aUserCountDefault.slice(0));
-	var aPlaylistDefault = [["Timestamp", "Title", "Duration", "Seconds", "Type", "Link"]];
-	var aPlaylist = getOrDefault(CHANNEL.name + "_PLAYLIST", aPlaylistDefault.slice(0));
-	var downloadMsg = false;
-	var downloadUsers = false;
-	var downloadPlaylist = false;
-
-	$('<button id="dl-logs" class="btn btn-sm btn-default">DL Logs</button>')
-		.insertAfter($("#emotelistbtn"))
-		.on("click", function () {
-			downloadMsg = true;
-			downloadUsers = true;
-			downloadPlaylist = true;
-			setTimeout(function () {
-				if (downloadMsg) {
-					downloadMsg = false;
-					var filename = CHANNEL.name + "-CHAT-" + new Date() + ".csv";
-					exportToCsv(filename, aMessages);
-					aMessages = aMessagesDefault.slice(0);
-					setOpt(CHANNEL.name + "_MSGS", aMessages);
-				}
-			}, 3000);
-			setTimeout(function () {
-				if (downloadUsers) {
-					downloadUsers = false;
-					var filename = CHANNEL.name + "-USERS-" + new Date() + ".csv";
-					exportToCsv(filename, aUserCount);
-					aUserCount = aUserCountDefault.slice(0);
-					setOpt(CHANNEL.name + "_USERCOUNT", aUserCount);
-				}
-			}, 3000);
-			setTimeout(function () {
-				if (downloadPlaylist) {
-					downloadPlaylist = false;
-					var filename = CHANNEL.name + "-PLAYLIST-" + new Date() + ".csv";
-					exportToCsv(filename, aPlaylist);
-					aPlaylist = aPlaylistDefault.slice(0);
-					setOpt(CHANNEL.name + "_PLAYLIST", aPlaylist);
-				}
-			}, 3000);
-		});
-
-	removeChatSocket();
-	socket.on("chatMsg", chatSocket);
-
-	function removeChatSocket() {
-		socket.off("chatMsg", chatSocket);
-	}
-
-	function chatSocket(data) {
-		if (data.meta.addClass !== "server-whisper") {
-			aMessages[aMessages.length] = [data.time, data.username, data.msg.replace(/<a.+href="(.+?)".+<\/a>/gi, "$1")];
-			if (aMessages.length > msgLength || downloadMsg) {
-				downloadMsg = false;
-				var filename = CHANNEL.name + "-CHAT-" + new Date() + ".csv";
-				exportToCsv(filename, aMessages);
-				aMessages = aMessagesDefault.slice(0);
-			}
-			try {
-				setOpt(CHANNEL.name + "_MSGS", aMessages);
-			} catch {
-				exportToCsv(filename, aMessages);
-				aMessages = aMessagesDefault.slice(0);
-				setOpt(CHANNEL.name + "_MSGS", aMessages);
-			}
-		}
-	}
-
-	removeUserSocket();
-	socket.on("usercount", userSocket);
-
-	function removeUserSocket() {
-		socket.off("usercount", userSocket);
-	}
-
-	function userSocket(data) {
-		aUserCount[aUserCount.length] = [new Date().getTime(), data];
-		if (aUserCount.length > userLength || downloadUsers) {
-			downloadUsers = false;
-			var filename = CHANNEL.name + "-USERS-" + new Date() + ".csv";
-			exportToCsv(filename, aUserCount);
-			aUserCount = aUserCountDefault.slice(0);
-		}
-		try {
-			setOpt(CHANNEL.name + "_USERCOUNT", aUserCount);
-		} catch {
-			exportToCsv(filename, aUserCount);
-			aUserCount = aUserCountDefault.slice(0);
-			setOpt(CHANNEL.name + "_USERCOUNT", aUserCount);
-		}
-	}
-
-	removeMediaSocket();
-	socket.on("changeMedia", mediaSocket);
-
-	function removeMediaSocket() {
-		socket.off("changeMedia", mediaSocket);
-	}
-
-	function mediaSocket(data) {
-		aPlaylist[aPlaylist.length] = [new Date().getTime(), data.title, "`" + data.duration, data.seconds, data.type, data.id];
-		if (aPlaylist.length > playlistLength || downloadPlaylist) {
-			downloadPlaylist = false;
-			var filename = CHANNEL.name + "-PLAYLIST-" + new Date() + ".csv";
-			exportToCsv(filename, aPlaylist);
-			aPlaylist = aPlaylistDefault.slice(0);
-		}
-		try {
-			setOpt(CHANNEL.name + "_PLAYLIST", aPlaylist);
-		} catch {
-			exportToCsv(filename, aMessages);
-			aMessages = aMessagesDefault.slice(0);
-			setOpt(CHANNEL.name + "_PLAYLIST", aPlaylist);
-		}
-	}
-
-	function exportToCsv(filename, rows) {
-		var processRow = function (row) {
-			var finalVal = '';
-			for (var j = 0; j < row.length; j++) {
-				var innerValue = row[j] === null ? '' : row[j].toString();
-				if (row[j] instanceof Date) {
-					innerValue = row[j].toLocaleString();
-				};
-				var result = innerValue.replace(/"/g, '""');
-				if (result.search(/("|,|\n)/g) >= 0)
-					result = '"' + result + '"';
-				if (j > 0)
-					finalVal += ',';
-				finalVal += result;
-			}
-			return finalVal + '\n';
-		};
-
-		var csvFile = '';
-		for (var i = 0; i < rows.length; i++) {
-			csvFile += processRow(rows[i]);
-		}
-
-		var blob = new Blob([csvFile], { type: 'text/csv;charset=utf-8;' });
-		if (navigator.msSaveBlob) { // IE 10+
-			navigator.msSaveBlob(blob, filename);
-		} else {
-			var link = document.createElement("a");
-			if (link.download !== undefined) { // feature detection
-				// Browsers that support HTML5 download attribute
-				var url = URL.createObjectURL(blob);
-				link.setAttribute("href", url);
-				link.setAttribute("download", filename);
-				link.style.visibility = 'hidden';
-				document.body.appendChild(link);
-				link.click();
-				document.body.removeChild(link);
-			}
-		}
-	}
+	$('head').append('<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/HappyHub1/December@eafb0c22822e96e7eab5cc7742a089b2cdd20663/userbot.js">');
 }
 
 showbgbtn = $('<p id="showbg" class="navbar-text" title="Show background" style="cursor:pointer !important;">Show BG</p>')
@@ -2722,27 +2647,43 @@ showbgbtn = $('<p id="showbg" class="navbar-text" title="Show background" style=
 		}
 });
 
+function getCurrentPlayerTime() {
+	try {
+		if (typeof PLAYER.player !== "undefined") {
+			return PLAYER.player.currentTime(); // "FilePlayer, Vimeo"
+		} else if (typeof PLAYER.yt !== "undefined") { // "YouTube"
+			return PLAYER.yt.getCurrentTime(); // "YouTube"
+		} else if (typeof PLAYER.dm !== "undefined") {
+			return PLAYER.dm.currentTime; // "Daily Motion"
+		}
+	} catch {
+		return CurrentVideoTime;
+	}
+}
+
 var CurrentVideoTime = 0;
 
 socket.on("delete", function() {
-    updateEndTimes(CurrentVideoTime);
+	setTimeout(function() {
+		updateEndTimes(getCurrentPlayerTime());
+	}, 750); // hopefully this fixes the issue..
 });
 
 socket.on("moveVideo", function() {
 	setTimeout(function() {
-		updateEndTimes(CurrentVideoTime)
-	}, 500);
+		updateEndTimes(getCurrentPlayerTime());
+	}, 750);
 });
 
 function updateEndTimesOnLoad() {
     var PLTimeList = Array.from(document.getElementsByClassName("qe_time")).forEach(function (PLCurrElement) {
         var qeEndTime = document.createElement("span");
-        qeEndTime.setAttribute("class", "qe_endTime");
+        qeEndTime.classList.add('qe_endTime');
 
         PLCurrElement.parentElement.insertBefore(qeEndTime, PLCurrElement.nextSibling);
 
         var qeuser = document.createElement("span");
-        qeuser.setAttribute("class", "qe_user");
+        qeuser.classList.add('qe_user');
         qeuser.textContent = PLCurrElement.parentElement.getAttribute("title").replace("Added by: ", "") + " | ";
 
         PLCurrElement.parentElement.insertBefore(qeuser, PLCurrElement.nextSibling);
@@ -2779,9 +2720,9 @@ function makeQueueEntry(item, addbtns) {
 
     if(addbtns)
         addQueueButtons(li);
-	
+
 	setTimeout(function() {
-		updateEndTimes(CurrentVideoTime);
+		updateEndTimes(getCurrentPlayerTime());
 	}, 100);
     return li;
 }
@@ -2790,68 +2731,158 @@ function updateEndTimes(CurrentVideoTime) {
     var currentTime = new Date().getTime();
     var activeItemPosition = Array.from(document.getElementById("queue").children).indexOf(document.getElementsByClassName("queue_active")[0]);
 
-    var PLTimeList = document.getElementsByClassName("qe_time");
-    var PLEndTimeList = document.getElementsByClassName("qe_endTime") || false;
-    var PLSeconds = 0;
+	if (activeItemPosition === -1) {
+		setTimeout(function() {
+			updateEndTimes(CurrentVideoTime);
+		}, 250);
+	} else {
+		var PLTimeList = document.querySelectorAll("#queue .qe_time");
+		var PLEndTimeList = document.getElementsByClassName("qe_endTime") || false;
+		var PLSeconds = 0;
 
-	if (PLTimeList.length !== 0) {
-		if (document.getElementsByClassName("qe_endTime").length === 0) {
-			updateEndTimesOnLoad();
-		}
-
-		if (activeItemPosition !== 0) {
-			for (var j = 0; j < activeItemPosition; j++) {
-				PLEndTimeList[j].textContent = "";
-			}
-		}
-
-		var maxItems = 50;
-		var maxPosition = 0;
-		
-		if (PLTimeList.length < activeItemPosition + maxItems) {
-			maxPosition = PLTimeList.length;
-		} else {
-			maxPosition = activeItemPosition + maxItems;			
-			for (var j = maxPosition; j < PLTimeList.length; j++) {
-				PLEndTimeList[j].textContent = "";
-			}
-		}
-
-		for (var i = activeItemPosition; i < maxPosition; i++) {
-			var currSplitTime = PLTimeList[i].textContent.split(":");
-			if (currSplitTime.length === 3) {
-				PLSeconds += parseInt(currSplitTime[0]) * 60 * 60;
-			}
-			PLSeconds += parseInt(currSplitTime[currSplitTime.length-2]) * 60;
-			PLSeconds += parseInt(currSplitTime[currSplitTime.length-1]);
-			PLSeconds += 3; //video player delay
-
-			if (i === activeItemPosition) {
-				PLSeconds = PLSeconds - CurrentVideoTime;
+		if (PLTimeList.length !== 0) {
+			if (PLEndTimeList.length === 0) {
+				updateEndTimesOnLoad();
 			}
 
-			var updatedTime = new Date(currentTime + PLSeconds * 1000);
-			var isPM = updatedTime.getHours() >= 12;
-			var isMidday = updatedTime.getHours() == 12;
-
-			var updatedHours = updatedTime.getHours() - (isPM && !isMidday ? 12 : 0);
-			if (updatedHours === 0) {
-				updatedHours = 12;
+			if (activeItemPosition > 0) {
+				for (var j = 0; j < activeItemPosition; j++) {
+					PLEndTimeList[j].textContent = "";
+				}
 			}
 
-			var updatedMins = updatedTime.getMinutes().toString();
-			if (updatedMins.length === 1) {
-				updatedMins = "0" + updatedMins;
-			}
-			var updatedSecs = updatedTime.getSeconds().toString();
-			if (updatedSecs.length === 1) {
-				updatedSecs = "0" + updatedSecs;
+			var maxItems = 50;
+			var maxPosition = 0;
+
+			if (PLTimeList.length < activeItemPosition + maxItems) {
+				maxPosition = PLTimeList.length;
+			} else {
+				maxPosition = activeItemPosition + maxItems;
+				for (var j = maxPosition; j < PLTimeList.length; j++) {
+					PLEndTimeList[j].textContent = "";
+				}
 			}
 
-			PLEndTimeList[i].textContent = "Ends at " + updatedHours + ":" + updatedMins + ":" + updatedSecs + (isPM ? ' PM' : ' AM') + " | ";
+			var noTime = false;
+
+			for (var i = activeItemPosition; i < maxPosition; i++) {
+				var currSplitTime = PLTimeList[i].textContent.split(":");
+
+				if (currSplitTime[0] !== "--" && !noTime) {
+					if (currSplitTime.length === 3) {
+						PLSeconds += parseInt(currSplitTime[0]) * 60 * 60;
+					}
+					PLSeconds += parseInt(currSplitTime[currSplitTime.length-2]) * 60;
+					PLSeconds += parseInt(currSplitTime[currSplitTime.length-1]);
+					PLSeconds += 3; //video player delay
+
+					if (i === activeItemPosition) {
+						PLSeconds = PLSeconds - CurrentVideoTime;
+					}
+
+					var updatedTime = new Date(currentTime + PLSeconds * 1000);
+					var isPM = updatedTime.getHours() >= 12;
+					var isMidday = updatedTime.getHours() == 12;
+
+					var updatedHours = updatedTime.getHours() - (isPM && !isMidday ? 12 : 0);
+					if (updatedHours === 0) {
+						updatedHours = 12;
+					}
+
+					var updatedMins = updatedTime.getMinutes().toString();
+					if (updatedMins.length === 1) {
+						updatedMins = "0" + updatedMins;
+					}
+					var updatedSecs = updatedTime.getSeconds().toString();
+					if (updatedSecs.length === 1) {
+						updatedSecs = "0" + updatedSecs;
+					}
+
+					PLEndTimeList[i].textContent = "Ends at " + updatedHours + ":" + updatedMins + ":" + updatedSecs + (isPM ? ' PM' : ' AM') + " | ";
+				} else {
+					if (!noTime) {
+						PLEndTimeList[i].textContent = "Never ends | ";
+					} else {
+						PLEndTimeList[i].textContent = "";
+					}
+					noTime = true;
+				}
+			}
 		}
 	}
 }
+
+function createWEBM() {
+	if (EMBEDVID) {
+		$(".webm").each(function() {
+			splitwebmlink = this.href;
+			vid = $('<video class="embedvid" />').attr('src', splitwebmlink).prop('loop', LOOPWEBM).prop('muted', 'true').prop('autoplay', AUTOVID)
+				.on("click", function() {
+					$(this).get(0).paused ? $(this).get(0).play() : $(this).get(0).pause();
+					return false;
+				}).on("dblclick", function() {
+					window.open(splitwebmlink, '_blank');
+					return false;
+				});
+			vid.attr('controls', '');
+			SCROLLCHAT ? scrollChat() : '';
+			$(this).before(vid).remove();
+		});
+		$(".pm-buffer.linewrap video, #messagebuffer.linewrap video").css({"max-width": MAXW + "px","max-height": MAXH + "px"});
+	}
+}
+
+EMBEDVID ? createWEBM() : "";
+
+socket.on("chatMsg", createWEBM);
+
+embedform = $('<div id="embedform" class="form-group" />').appendTo(configwell);
+$('<div class="col-lg-3 col-md-3 conf-cap">Embeds<span id="embed-help">[?]</span></div>')
+  .appendTo(embedform);
+embedwrap = $('<div id="embedwrap" class="btn-group col-lg-6 col-md-6" />').appendTo(embedform);
+txt = 'This option lets you see Webms directly on the chat, instead of links.\n'
+  + 'Double click on a Webm to open in the new tab.\n'
+  + 'All Webms are muted by default.';
+$("#embed-help").prop("title", txt).on("click", function() {
+	alert(txt);
+});
+embedvid = $('<button id="embedvid-btn" class="btn btn-sm btn-default" title="Toggle Webm">Webm</button>')
+	.appendTo(embedwrap)
+	.on("click", function() {
+		EMBEDVID = !EMBEDVID;
+		setOpt(CHANNEL.name + "_EMBEDVID", EMBEDVID);
+		toggleDiv(autovid);
+		toggleDiv(loopwebm);
+		!EMBEDVID ? embedvid.removeClass('btn-success') : embedvid.addClass('btn-success');
+		if (!EMBEDVID) {
+			$('.pm-buffer.linewrap video, #messagebuffer.linewrap video').each(function() {
+				$('<a target="_blank" class="webm"></a>').attr('href', $(this).prop('src')).insertBefore(this).text($(this).prop('src'));
+			}).remove();
+		} else {
+			createWEBM();
+		}
+  });
+!EMBEDVID ? embedvid.removeClass('btn-success') : embedvid.addClass('btn-success');
+autovid = $('<button id="autoplay-btn" class="btn btn-sm btn-default" title="Toggle Webm Autoplay">Autoplay</button>')
+	.appendTo(embedwrap)
+	.on("click", function() {
+		AUTOVID = !AUTOVID;
+		setOpt(CHANNEL.name + "_AUTOVID", AUTOVID);
+		!AUTOVID ? autovid.removeClass('btn-success') : autovid.addClass('btn-success');
+	});
+!AUTOVID ? autovid.removeClass('btn-success') : autovid.addClass('btn-success');
+!EMBEDVID ? autovid.hide() : '';
+
+loopwebm = $('<button id="loopplay-btn" class="btn btn-sm btn-default" title="Toggle Webm Loop">Loop</button>')
+	.appendTo(embedwrap)
+	.on("click", function() {
+		LOOPWEBM = !LOOPWEBM;
+		setOpt(CHANNEL.name + "_LOOPWEBM", LOOPWEBM);
+		!LOOPWEBM ? loopwebm.removeClass('btn-success') : loopwebm.addClass('btn-success');
+		$(".pm-buffer.linewrap video, #messagebuffer.linewrap video").prop('loop', LOOPWEBM);
+	});
+!LOOPWEBM ? loopwebm.removeClass('btn-success') : loopwebm.addClass('btn-success');
+!EMBEDVID ? loopwebm.hide() : '';
 
 $('<div id="adAlert1"></div>').insertBefore($("#main"));
 $('<div id="adAlert2"></div>').insertBefore($("#main"));
@@ -2991,6 +3022,86 @@ normal_ecchi_imgs = ['https://cdn.discordapp.com/attachments/782748631429939212/
 'https://cdn.discordapp.com/attachments/461364788560265216/754907355430518874/1600053885481.png',
 'https://cdn.discordapp.com/attachments/782748631429939212/783537227824627742/Eh8dzBGUwAEujCx.png'];
 
+loli_lewd_imgs = ['https://cdn.discordapp.com/attachments/782748631429939212/783531144360099840/EeVXoXsVAAEywYn.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/740446580645036083/63961131_p0_master1200.jpg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783538797781450773/EkPHQpSVgAAiFPE.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/763238812473229342/Screenshot_20200702-170945.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783539403477221427/EkdekZVVkA4ivn8.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/774356355879403560/80.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/772809127004340244/kujou_karen_kin_iro_mosaic_drawn_by_minato_ojitan__sample-87f34dc9e071b277aa3364d96e899197.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/767056127325241354/1368676_20201017220050_0.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/767004486085509141/myrtle_arknights_drawn_by_izuoku__70e81b42c7433da9e288f5a8c4eda808.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/763257092789370880/5fb4228ff741077ccf6737c996415bcc.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/763238809252397166/94619e78bf29cd0163d4bbb94f4dac76.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/777924231169835049/manaka_lala_and_yumekawa_yui_pretty_and_2_more_drawn_by_ac_butsupa__b07617c807e322cc6f4e0a090c10dfdc.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/775472434722766878/kafuu_chino_gochuumon_wa_usagi_desu_ka_drawn_by_mizunoiruka__ae78fc8591b8eafd452e838fb759f7a1.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/775386356560953425/inaba_tewi_touhou_drawn_by_usaka_ray__f040c4c7d731f835a4cc02930e6f98b2.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/753272064739246091/002662938_NQozzy6Cw.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783536931677405204/Eht8YEIUcAEhNEY.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783536793072435201/EhbcDFIU4AA0Ujh.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537292383354910/EhfGzaVU4AE170n.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/775472373049851954/tedeza_rize_gochuumon_wa_usagi_desu_ka_drawn_by_mizunoiruka__a3e101fee4864aa7c9cee16dad3989a1.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/775472405354905650/hoto_cocoa_gochuumon_wa_usagi_desu_ka_drawn_by_mizunoiruka__0bdc9fab5124408a1f98a3603095c685.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/776661195449040956/nazrin_touhou_drawn_by_nanana_chicken_union__b51dfd91be1210cab055e5dd1b969587.jpg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783536399478816838/Konachan.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783536251273740288/Em5nX_ZUYAAFPpb.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783535898352418826/EnMau0lW8AIUwES.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783536049572806716/EnD41j6VoAAvadM.png',
+'https://cdn.discordapp.com/attachments/566410364678438913/776508627761889280/85477248_p0.jpg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783533732283023360/EhbcDFIU4AA0Ujh.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/749528957891903558/Ec4T6MpUwAE-Xqy.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/740446629408145428/51656972_p0_master1200.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/746771200625344522/DOpThvSIK5b6W5ewnUZMF4Sg.jpeg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783531662167900160/EeqIxRvUMAoiiPD.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783531940984651847/EfQXlclUcAEeG6k.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783531814386925568/EfCDM7HVoAAbq5c.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/756341908804206722/oGXnyx9bKk1PqVGad38kqqtj.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/762436319988678656/image0.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/763235247780921374/takamachi_nanoha_lyrical_nanoha_and_2_more_drawn_by_raiou__sample-9fad43e3dc2500a366cb4e2c703471a0.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/763237937932140554/yande-1.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537726858330132/EixF_3hU0AEJ89c.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537489716445184/EiMUdAiU8AAEDdW.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/741288443384168499/83481320_p0.png',
+'https://cdn.discordapp.com/attachments/430932837034754058/753852273196662784/42cc500babaacb36064468b4f3b2eeca-1.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783531588281040956/Ee-msizU0AIBOJH.png']
+
+normal_lewd_imgs = ['https://cdn.discordapp.com/attachments/461364788560265216/743207117082591272/29dc31a11a630d5b63dcaac9eb8850ed.jpg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783532015504326696/EeVj1-TUwAAiR5_.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/781754746985775124/illust_74099445_20201127_003322.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783532124744843304/EeVj0sKUEAACAS8.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783533251192553472/EhH4q0CUYAEkJXR.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/777925848443125840/eyjafjalla_arknights_drawn_by_take_trude1945oneetyan__7e054167f80e4791b42dd2c329365314.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/776089150129963038/chocola_vanilla_coconut_cinnamon_azuki_and_1_more_nekopara_drawn_by_sayori__d1a0924f215335b28f8a01fa.jpg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537425724735488/EiOCQFBUwAAcIUT.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/762762025444442192/masato_and_yui_josou_jinja_drawn_by_aogiri_penta__242044c11762f3d67bd5724207770ca1.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/763238809894387741/kokkoro_princess_connect_and_1_more_drawn_by_kiikii_kitsukedokoro__78c14a6a26833d614ec970fed9d163e4.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/764301251805446175/Ej4Cz0gUYAAA6M5.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/767002491187363871/karyl_princess_connect_and_1_more_drawn_by_dolechan__04b0e9c21b8af07a6b1916f2a7945b24.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783501460884946964/EoKmx28VoAAOlNb.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783539595408441344/EmS9hlNU0AAPTk1.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/774120289030242334/Screenshot_20200924-142807.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783539326549753906/EkiFXecVcAA2-cI.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/763234747001339924/bache_azur_lane_drawn_by_kirisame_mia__sample-a24e28d9e049e4e42c1d6dd3a75f9b98.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537554904973352/EiMSehcU4AA-iP2.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783539154393890816/EkgEc1nUYAEsuJW.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/775572064295190528/karyl_princess_connect_and_1_more_drawn_by_kumasteam__0ce7931499e8b167493ab4df09322b44.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783538072729288744/Eji2EFAUYAAOj3A.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537666292449310/Eczjo4ZU0AcBEzo.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783537613595344996/EirawKvXYAI2Re3.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783535995399438376/Emym0IBUYAE29Jq.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/779526223968731163/1449855044443.jpg',
+'https://cdn.discordapp.com/attachments/461364788560265216/782105184293355590/77353822_p0.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783533664885014538/EhYY3rnVkAEhNqc.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783534895321972756/EmS9hlNU0AAPTk1.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783534169569230848/Enfvtn5UwAEB9pq.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/749528904464597058/EdCmPQaUYAE97U0.jpg',
+'https://cdn.discordapp.com/attachments/782748631429939212/783533607603798037/EhXusOlU4AE01-s.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/748187093615771718/z23_azur_lane_drawn_by_chen_bin__14cfbb37eed64ae8a1dd1777a950d763.png',
+'https://cdn.discordapp.com/attachments/461364788560265216/749337800939405412/EgTWzqxXoAECXlR.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783532149906604042/EeVj1WzUMAE8if9.png',
+'https://cdn.discordapp.com/attachments/782748631429939212/783532326537789490/Ef-_0PAUMAErQb7.png',
+'https://media.discordapp.net/attachments/782748631429939212/783532182043099196/EfesSBkUYAAUJ4J.png?width=505&height=678']
+
 class PresentsEffect {
     ///////////////////////////////////////////
     // "Public" Static methods
@@ -3002,14 +3113,14 @@ class PresentsEffect {
         PresentsEffect.presents_duration_s = 30;
         PresentsEffect.present_animations = ['type1', 'type2', 'type3', 'type4', 'type5', 'type6']
         PresentsEffect.levels = [
-            { spawn_rate: 1000, spawn_limit: 6 },
+            { spawn_rate: 500, spawn_limit: 6 },
             { spawn_rate: 1000, spawn_limit: 10 },
         ];
 
         PresentsEffect.versions = {
             'normal': {
                 padoru: PresentsEffect.shiz_img,
-                img_bank: [].concat(normal_ecchi_imgs, loli_ecchi_imgs)
+                img_bank: [].concat(normal_lewd_imgs, loli_lewd_imgs)
             },
         }
         PresentsEffect.state = {
@@ -3166,7 +3277,7 @@ static _create_present(is_left){
     const inner = document.createElement('img')
     inner.classList.add(`c-effect__presents-present-fall`);
     inner.classList.add(`c-effect__presents-present-fall-${animation}`);
-    inner.style.left = `${random_location}%`; 
+    inner.style.left = `${random_location}%`;
     inner.src = present_img;
     PresentsEffect.addElement(inner);
 
@@ -3335,147 +3446,11 @@ class PadoruEffect {
 
 }
 
-class SnowEffect {
-    ///////////////////////////////////////////
-    // Static variables
-    ///////////////////////////////////////////
-
-
-    ///////////////////////////////////////////
-        // "Public" Static methods
-        ///////////////////////////////////////////
-        static init() {
-            SnowEffect.command = '/snow';
-            SnowEffect.templates = ['❅', '❆'];
-            SnowEffect.animations = ['type1', 'type2', 'type3', 'type4'];
-            SnowEffect.levels = [
-                { spawn_rate: 250, spawn_limit: 10 },
-                { spawn_rate: 250, spawn_limit: 20 },
-                { spawn_rate: 150, spawn_limit: 20 },
-                { spawn_rate: 75, spawn_limit: 20 },
-            ];
-            SnowEffect.max_time_limit_s = 1200;
-            SnowEffect.state = {
-                is_on: false,
-                enabled: true,
-                level_info: SnowEffect.levels[0],
-                timeout: null,
-            }
-            SnowEffect.container = document.createElement('div');
-            document.documentElement.appendChild(SnowEffect.container);
-        }
-    static stop() {
-        SnowEffect.state.is_on = false;
-    }
-    static disable() {
-        SnowEffect.state.enabled = false;
-    }
-    static enable() {
-        SnowEffect.state.enabled = true;
-    }
-    static handleCommand(message_parts = [], other_args = {}) { // other args is for compatability
-        let [level, time_limit_s] = SnowEffect.parseMessage(message_parts);
-
-        // Update the currently used snowing level
-        let level_index = level - 1;
-        if (level_index < 0 || level_index > SnowEffect.levels.length) {
-            level_index = 0;
-        }
-        SnowEffect.state.level_info = SnowEffect.levels[level_index];
-
-        // Disable snow after the timeout. If there is already one, reset the timer
-        if (SnowEffect.state.timeout) {
-            clearTimeout(SnowEffect.state.timeout);
-        }
-        SnowEffect.state.timeout =
-            setTimeout(SnowEffect.stop, time_limit_s * 1000);
-
-        // Only start the snow animation if it is not already started
-        if (SnowEffect.state.is_on) {
-            return;
-        }
-        SnowEffect.state.is_on = true;
-        SnowEffect._runAnimation();
-    }
-    static addElement(element) {
-        SnowEffect.container.appendChild(element);
-    }
-
-    static parseMessage(message_parts) {
-        if (message_parts[0] === 'off') {
-            SnowEffect.stop();
-            return;
-        }
-
-        let level = parseInt(message_parts[0] || '1', 10);
-        if (isNaN(level) || level < 1) {
-            level = 1;
-        }
-
-        let time_limit_s = parseInt(message_parts[1] || '1200', 10);
-        if (isNaN(time_limit_s) || time_limit_s < 1) {
-            time_limit_s = 10;
-        } else if (time_limit_s > SnowEffect.max_time_limit_s) {
-            time_limit_s = SnowEffect.max_time_limit_s;
-        }
-
-        return [level, time_limit_s];
-
-    }
-
-    ///////////////////////////////////////////
-    // "Timer" Static methods
-    ///////////////////////////////////////////
-    static createSnowflake() {
-        if (!SnowEffect.state.is_on || !SnowEffect.state.enabled) {
-            return;
-        }
-
-        const ascii = CustomTextTriggers.randomElement(SnowEffect.templates);
-        const animation_type = CustomTextTriggers.randomElement(SnowEffect.animations);
-        const random_percent = (Math.random() * 100).toFixed(4);
-
-        const outer = document.createElement('div');
-        outer.classList.add('c-effect__snowflake-outer');
-        outer.style.left = `${random_percent}%`;
-
-        const inner = document.createElement('div');
-        inner.classList.add('c-effect__snowflake');
-        inner.classList.add(animation_type);
-        inner.textContent = ascii;
-
-        outer.appendChild(inner);
-        SnowEffect.addElement(outer);
-        const fn = () => {
-            outer.parentElement.removeChild(outer);
-            outer.removeEventListener('animationend', fn);
-        };
-        outer.addEventListener('animationend', fn);
-    }
-
-    static _runAnimation() {
-        const create_fn = () => {
-            if (!SnowEffect.state.is_on) {
-                return;
-            }
-
-            const max_snowflakes = SnowEffect.state.level_info.spawn_limit;
-            const total = Math.floor(1 + Math.random() * (max_snowflakes - 1));
-            for (let i = 0; i < total; i++) {
-                SnowEffect.createSnowflake();
-            }
-
-            setTimeout(create_fn, SnowEffect.state.level_info.spawn_rate);
-        };
-        setTimeout(create_fn, SnowEffect.state.level_info.spawn_rate);
-    }
-}
-
 class ErabeEffect {
 
     ///////////////////////////////////////////
     // Static variables
-    /////////////////////////////////////////// 
+    ///////////////////////////////////////////
 
     ///////////////////////////////////////////
         // "Public" Static methods
@@ -3625,6 +3600,608 @@ class ErabeEffect {
     }
 
 }
+
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+function getRandomFloat(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+
+/**
+ * Usage: /wonderland
+ * Turn off: /wonderland off
+ */
+class ChristmasWonderlandEffect {
+  static init() {
+    ChristmasWonderlandEffect.state = {
+      user_enabled: true,
+      is_running: false,
+    };
+  }
+
+	static start() {
+		const state = ChristmasWonderlandEffect.state;
+    if (state.is_running || !state.user_enabled) {
+      return;
+    }
+
+    state.is_running = true;
+
+    state._root_element = document.createElement('div');
+    state._root_element.classList.add('c-effect__christmas-wonderland');
+
+    const lightrope = ChristmasWonderlandEffect.buildLightrope();
+    state._root_element.appendChild(lightrope);
+
+    const left_candy_cane = ChristmasWonderlandEffect.buildCandyCane('l');
+    const right_candy_cane = ChristmasWonderlandEffect.buildCandyCane('r');
+    state._root_element.appendChild(left_candy_cane);
+    state._root_element.appendChild(right_candy_cane);
+
+    const left_tree = ChristmasWonderlandEffect.buildTree(1, 'l');
+    const middle_tree = ChristmasWonderlandEffect.buildTree(1, 'm');
+    const right_tree = ChristmasWonderlandEffect.buildTree(2, 'r');
+    state._root_element.appendChild(left_tree);
+    state._root_element.appendChild(middle_tree);
+    state._root_element.appendChild(right_tree);
+
+    const kfc_bucket = ChristmasWonderlandEffect.buildKfcBucket();
+    state._root_element.appendChild(kfc_bucket);
+
+    document.body.appendChild(state._root_element);
+	}
+
+	static stop() {
+		const state = ChristmasWonderlandEffect.state;
+    if (!state.is_running) {
+      return;
+    }
+
+    state.is_running = false;
+    document.body.removeChild(state._root_element);
+    state._root_element = null;
+	}
+
+  static enable() {
+		ChristmasWonderlandEffect.state.user_enabled = true;
+  }
+
+  static disable() {
+		ChristmasWonderlandEffect.state.user_enabled = false;
+		ChristmasWonderlandEffect.stop();
+  }
+
+  static handleCommand(message_parts = [], other_args = {}) { // other args is for compatability
+    if (message_parts[0] === 'off') {
+      ChristmasWonderlandEffect.stop();
+      return;
+    }
+
+    ChristmasWonderlandEffect.start();
+  }
+
+  static buildLightrope() {
+    const container = document.createElement('div');
+    container.classList.add('c-effect__lightrope');
+
+    // TODO: Change css to set display: none on many of the unused lights
+    for (let i = 0; i < 50; i++) {
+      const light = document.createElement('div');
+      light.classList.add('c-effect__lightrope-light');
+
+      const bulb = document.createElement('div');
+      bulb.classList.add('c-effect__lightrope-bulb');
+      light.appendChild(bulb);
+
+      const socket = document.createElement('div');
+      socket.classList.add('c-effect__lightrope-socket');
+      light.appendChild(socket);
+
+      const rope = document.createElement('div');
+      rope.classList.add('c-effect__lightrope-rope');
+      light.appendChild(rope);
+
+      container.appendChild(light);
+    }
+
+    return container;
+  }
+
+  static buildCandyCane(direction = 'l') {
+    const container = document.createElement('div');
+    container.classList.add('c-candy-cane');
+    if (direction === 'r') {
+      container.classList.add('c-candy-cane--right');
+    }
+
+    for (let i = 0; i < 150; i++) {
+      const ring = document.createElement('div');
+      ring.classList.add('c-candy-cane-ring');
+      if (i % 2) {
+        ring.classList.add('c-candy-cane-ring--red');
+      } else {
+        ring.classList.add('c-candy-cane-ring--white');
+      }
+
+      container.appendChild(ring);
+    }
+
+    return container;
+  }
+
+  static buildTree(type_number = 1, location = 'l') {
+    const container = document.createElement('div');
+    container.classList.add('c-christmas-tree');
+
+    let tree_config;
+    if (type_number === 1) {
+      container.classList.add('c-christmas-tree--type-1');
+      tree_config = ChristmasWonderlandEffect.tree_type_1;
+    } else {
+      container.classList.add('c-christmas-tree--type-2');
+      tree_config = ChristmasWonderlandEffect.tree_type_2;
+    }
+
+    if (location === 'l') {
+      container.classList.add('c-christmas-tree--left');
+    } else if (location === 'm') {
+      container.classList.add('c-christmas-tree--middle');
+    } else {
+      container.classList.add('c-christmas-tree--right');
+    }
+
+    container.innerHTML = tree_config.svg;
+
+    const lights_container = document.createElement('div');
+    lights_container.classList.add('c-christmas-tree__lights');
+
+    for (const light_config of tree_config.lights) {
+      const light = document.createElement('div');
+      light.classList.add('c-christmas-tree__light');
+
+      light.style.left = light_config.left;
+      light.style.top = light_config.top;
+      light.style.width = light_config.width;
+
+      const type = getRandomInt(1, 3);
+      light.classList.add(`c-christmas-tree__light--${type}`);
+
+      lights_container.appendChild(light);
+    }
+
+    container.appendChild(lights_container);
+
+    return container;
+  }
+
+  static buildKfcBucket() {
+    const container = document.createElement('div');
+    container.classList.add('c-kfc-bucket');
+
+    const image = document.createElement('img');
+    image.src = ChristmasWonderlandEffect.kfc_bucket_image;
+    container.appendChild(image);
+
+    return container;
+  }
+}
+ChristmasWonderlandEffect.command = '/wonderland';
+ChristmasWonderlandEffect.tree_type_1 = {
+  svg: `<svg class="c-christmas-tree__tree" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 110 154" xml:space="preserve"> <path d="M108.05,132.55c0,0-12.7-10.8-24.8-29c7.3-1.4,11.8-3.3,11.8-5.4c0,0-12.3-10.4-22.3-27.6c7.5-1,12.4-2.7,12.4-4.6 c0,0-12.4-10.5-20.2-27.3c6.2-0.7,10.4-1.9,10.4-3.4c0,0-14.8-12.5-17.3-30.9c-0.4-2.7-5.8-2.9-6.2,0c-2.4,20.2-17.3,30.9-17.3,30.9 c0,1.5,4.4,2.8,10.9,3.4c-7.7,17.9-20.7,27.3-20.7,27.3c0,2,5.3,3.7,13.3,4.8c-10.1,18.1-23.2,27.5-23.2,27.5 c0,2.2,5.1,4.3,13.2,5.7c-12.4,19-26.1,28.8-26.1,28.8c0,5,19.1,9.2,44.2,10v5.2c0,2.1,1.7,3.8,3.8,3.8h10.1c2.1,0,3.8-1.7,3.8-3.8 v-5.2C88.85,141.65,108.05,137.55,108.05,132.55z"/> </svg>`,
+  lights: [
+    {left: '56.122%', top: '16.66%', width: '3.63%',},
+    {left: '82.142%', top: '81.89%', width: '7.27%',},
+    {left: '71.683%', top: '77.08%', width: '5.45%',},
+    {left: '24.489%', top: '56.41%', width: '7.27%',},
+    {left: '34.948%', top: '71.79%', width: '7.27%',},
+    {left: '43.112%', top: '22.11%', width: '5.45%',},
+    {left: '27.806%', top: '82.53%', width: '5.45%',},
+    {left: '46.938%', top: '56.57%', width: '3.63%',},
+    {left: '70.408%', top: '58.49%', width: '3.63%',},
+    {left: '62.755%', top: '42.14%', width: '3.63%',},
+    {left: '59.693%', top: '70.51%', width: '7.27%',},
+    {left: '55.867%', top: '28.52%', width: '7.27%',},
+    {left: '60.204%', top: '50.00%', width: '5.45%',},
+    {left: '37.244%', top: '42.62%', width: '5.45%',},
+  ]
+}
+ChristmasWonderlandEffect.tree_type_2 = {
+  svg: `<svg class="c-christmas-tree__tree" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 98 156" xml:space="preserve"> <path d="M95.7,133.8l-17.2-30.6c4-1.1,6.3-2.4,6.3-3.9L68.6,70.5c5-1,8-2.3,8-3.7l-16-28.7c5.4-0.7,8.9-1.9,8.9-3.2L52.1,4.1 c-1.4-2.4-4.8-2.4-6.2,0L28.6,34.9c0,1.3,3.5,2.5,8.9,3.2L21.4,66.8c0,1.4,3.1,2.8,8,3.7L13.2,99.3c0,1.4,2.3,2.8,6.3,3.9L2.3,133.8 c0,4.2,15.2,7.7,35.7,8.6v7.6c0,2,1.6,3.7,3.7,3.7h14.7c2,0,3.7-1.6,3.7-3.7v-7.6C80.5,141.5,95.7,138,95.7,133.8z"/> </svg>`,
+  lights: [
+    {left: '56.30%', top: '16.88%', width: '3.63%',},
+    {left: '50.90%', top: '57.14%', width: '7.27%',},
+    {left: '68.60%', top: '62.01%', width: '5.45%',},
+    {left: '28.10%', top: '57.14%', width: '7.27%',},
+    {left: '42.70%', top: '19.48%', width: '7.27%',},
+    {left: '39.50%', top: '71.10%', width: '5.45%',},
+    {left: '24.00%', top: '84.74%', width: '5.45%',},
+    {left: '56.30%', top: '48.05%', width: '3.63%',},
+    {left: '80.00%', top: '83.76%', width: '3.63%',},
+    {left: '43.60%', top: '31.16%', width: '3.63%',},
+    {left: '62.70%', top: '39.25%', width: '7.27%',},
+    {left: '42.70%', top: '83.11%', width: '7.27%',},
+    {left: '63.10%', top: '76.94%', width: '5.45%',},
+    {left: '39.50%', top: '43.18%', width: '5.45%',},
+  ],
+};
+ChristmasWonderlandEffect.kfc_bucket_image = `${SCRIPT_FOLDER_URL}/Images/kfc.png`;
+
+
+/**
+ * Usage: /snow <rate: ('low' | 'medium' | 'high' | 'blizzard') = 'medium'>
+ * Turn off: /snow off
+ */
+class SnowEffect {
+  static init() {
+    SnowEffect.state = {
+      user_enabled: true,
+			is_running: false,
+
+      snow_level: SnowEffect.snow_levels.medium,
+      _canvas: null,
+      _context: null,
+
+      _width: window.innerWidth,
+      _height: window.innerHeight,
+      _snowflakes: [],
+      _requested_animation_frame: null,
+    };
+  }
+
+	static start(snow_level = 'medium') {
+		const state = SnowEffect.state;
+		if (!state.user_enabled) {
+			return;
+		}
+
+    snow_level = snow_level.toLowerCase();
+    if (SnowEffect.snow_levels[snow_level]) {
+      state.snow_level = SnowEffect.snow_levels[snow_level];
+    }
+
+    if (state.is_running) {
+      return;
+    }
+
+    state.is_running = true;
+    state._canvas = document.createElement('canvas');
+    state._canvas.classList.add('c-effect__snow-canvas');
+    document.body.appendChild(state._canvas);
+
+    state._context = state._canvas.getContext('2d');
+
+    // 0 timeout to allow the CSSOM to update the size of the canvas appropriately
+    setTimeout(() => SnowEffect.initAndReset(), 0);
+
+    // If the window resizes, just start all over again for simplicity
+    SnowEffect._resizeHandler = () => SnowEffect.initAndReset();
+    window.addEventListener('resize', SnowEffect._resizeHandler);
+	}
+
+	static stop() {
+		const state = SnowEffect.state;
+    if (!state.is_running) {
+      return;
+    }
+
+    state.is_running = false;
+    window.removeEventListener('resize', SnowEffect._resizeHandler);
+
+    if (state._requested_animation_frame) {
+      state._requested_animation_frame = null;
+      cancelAnimationFrame(state._requested_animation_frame);
+    }
+
+    state._context = null;
+    state._canvas.parentElement.removeChild(state._canvas);
+    state._canvas = null;
+	}
+
+  static enable() {
+		SnowEffect.state.user_enabled = true;
+  }
+
+  static disable() {
+    SnowEffect.state.user_enabled = false;
+		SnowEffect.stop();
+  }
+
+  static handleCommand(message_parts = [], other_args = {}) { // other args is for compatability
+		if (message_parts[0] === 'off') {
+      SnowEffect.stop();
+      return;
+    }
+
+    let level = message_parts[0] || 'medium';
+    if (!SnowEffect.snow_levels[level]) {
+      level = 'medium';
+    }
+
+    SnowEffect.start(level);
+  }
+
+  static initAndReset() {
+    const state = SnowEffect.state;
+
+    state._width = state._canvas.width = window.innerWidth;
+    state._height = state._canvas.height = window.innerHeight;
+    state._snowflakes = [];
+
+    if (!state._requested_animation_frame) {
+      state._requested_animation_frame = requestAnimationFrame(() => SnowEffect.handleFrame());
+    }
+  }
+
+  static handleFrame() {
+    const state = SnowEffect.state;
+		if (!state._context) {
+			return;
+		}
+
+    state._context.clearRect(0, 0, state._width, state._height);
+
+    // Add new snowflakes
+    const min_new = state._width / state.snow_level.max;
+    const max_new = state._width / state.snow_level.min;
+    const number_of_new_flakes = getRandomInt(min_new, max_new);
+    for (let i = 0; i < number_of_new_flakes; i++) {
+      state._snowflakes.push(SnowEffect.createSnowflake());
+    }
+
+    // Move all the flakes
+    for (const snowflake of state._snowflakes) {
+      snowflake.x += snowflake.velocity.x;
+      snowflake.y += snowflake.velocity.y;
+
+      state._context.fillStyle = '#fff';
+      state._context.beginPath();
+      state._context.arc(snowflake.x, snowflake.y, snowflake.size, 0, 2 * Math.PI, false);
+      state._context.fill();
+    }
+
+    // Remove particles below the screen
+    state._snowflakes = state._snowflakes.filter((snowflake) => {
+      const top_y = snowflake.y + (snowflake.size / 2);
+      if (top_y > state._height) {
+        return false;
+      }
+
+      const top_x = snowflake.x - (snowflake.size / 2);
+      if (top_x > state._width) {
+        return false;
+      }
+
+      return true;
+    });
+
+    state._requested_animation_frame = requestAnimationFrame(() => SnowEffect.handleFrame());
+  }
+
+  static createSnowflake() {
+    const state = SnowEffect.state;
+    const x = Math.random() * state._width;
+    const size = getRandomFloat(SnowEffect.min_size / 2, SnowEffect.max_size / 2);
+
+    let x_vel = getRandomFloat(SnowEffect.min_x_speed, SnowEffect.max_x_speed);
+    if (Math.random() > 0.5) {
+      x_vel = -x_vel;
+    }
+
+    return {
+      x,
+      y: -size,
+      size,
+      velocity: {
+        x: x_vel,
+        y: getRandomFloat(SnowEffect.min_y_speed, SnowEffect.max_y_speed),
+      }
+    };
+  }
+
+  static isSnowflakeOffscreen(snowflake) {
+    const state = SnowEffect.state;
+    const top_y = snowflake.y + (snowflake.size / 2);
+    if (top_y > state._height) {
+      return false;
+    }
+
+    const top_x = snowflake.x - (snowflake.size / 2);
+    if (top_x > state._width) {
+      return false;
+    }
+  }
+}
+SnowEffect.command = '/snow';
+SnowEffect.pixels_per_flake_min = 500
+SnowEffect.pixels_per_flake_max = 5000;
+SnowEffect.max_size = 10;
+SnowEffect.min_size = 3;
+SnowEffect.min_x_speed = 0.5;
+SnowEffect.max_x_speed = 3;
+SnowEffect.min_y_speed = 1;
+SnowEffect.max_y_speed = 4;
+SnowEffect.snow_levels = {
+  // The rate at which snow falls. High numbers means less snow
+
+	// Low levels. Multiple aliases
+  low: {min: 12500, max: 20000},
+  dust: {min: 12500, max: 20000},
+  light: {min: 12500, max: 20000},
+
+	// Medium or normal aliases
+  medium: {min: 3000, max: 7500},
+  normal: {min: 3000, max: 7500},
+
+  high: {min: 1000, max: 3500},
+  blizzard: {min: 500, max: 5000},
+  prime95: {min: 75, max: 900},
+};
+
+
+/**
+ * Usage: /banri <minutes to be on = 10> <infection rate (out of 100) = 50>
+ * Turn off: /banri off
+ */
+class GhostBanriEffect {
+  static init() {
+    GhostBanriEffect.state = {
+			// If the user has enabled the function to be run
+      user_enabled: true,
+			// If the effect is on and runnin
+			is_running: false,
+      // Length of time to keep active in minutes
+      length_minutes: GhostBanriEffect.DEFAULT_LENGTH_MIN,
+      // The target number of people to be affected by each activation
+      infection_rate: GhostBanriEffect.DEFAULT_INFECTION_RATE,
+    };
+    GhostBanriEffect.banri_timeout = null;
+    GhostBanriEffect.deactivate_timeout = null;
+  }
+
+	static start(length_minutes = 0, infection_rate = 0) {
+		const state = GhostBanriEffect.state;
+
+		if (!state.user_enabled) {
+			return;
+		}
+
+    if (length_minutes > 0) {
+      state.length_minutes = length_minutes;
+      GhostBanriEffect.resetDeactivationTimer();
+    }
+    if (infection_rate > 0 && infection_rate <= 1) {
+      state.infection_rate = infection_rate;
+    }
+
+    if (state.is_running) {
+      return;
+    }
+
+    state.is_running = true;
+    GhostBanriEffect.maybeShowBanri();
+    GhostBanriEffect.resetDeactivationTimer();
+	}
+
+	static stop() {
+		const state = GhostBanriEffect.state;
+    if (!state.is_running) {
+      return;
+    }
+
+    state.is_running = false;
+    if (GhostBanriEffect.banri_timeout) {
+      clearTimeout(GhostBanriEffect.banri_timeout);
+      GhostBanriEffect.banri_timeout = null;
+    }
+
+    state.length_minutes =GhostBanriEffect.DEFAULT_LENGTH_MIN;
+    state.infection_rate = GhostBanriEffect.DEFAULT_INFECTION_RATE;
+	}
+
+  static enable() {
+		GhostBanriEffect.state.user_enabled = true;
+  }
+
+  static disable() {
+		GhostBanriEffect.state.user_enabled = false;
+		GhostBanriEffect.stop();
+  }
+
+  static handleCommand(message_parts = [], other_args = {}) { // other args is for compatability
+    if (message_parts[0] === 'off') {
+      GhostBanriEffect.stop();
+      return;
+    }
+
+    let length_minutes = parseFloat(message_parts[0] || '0');
+    if (isNaN(length_minutes) || length_minutes <= 0) {
+      length_minutes = GhostBanriEffect.DEFAULT_LENGTH_MIN;
+    }
+
+    let infection_rate = parseFloat(message_parts[1] || '0');
+    if (isNaN(infection_rate) || infection_rate <= 0 || infection_rate > 100) {
+      infection_rate = GhostBanriEffect.DEFAULT_INFECTION_RATE;
+    } else {
+			infection_rate = infection_rate / 100;
+		}
+
+    GhostBanriEffect.start(length_minutes, infection_rate);
+  }
+
+  static maybeShowBanri() {
+    const state = GhostBanriEffect.state;
+    if (GhostBanriEffect.banri_timeout) {
+      clearTimeout(GhostBanriEffect.banri_timeout);
+      GhostBanriEffect.banri_timeout = null;
+    }
+
+    if (!state.user_enabled) {
+      return;
+    }
+
+    if (Math.random() > state.infection_rate) {
+      GhostBanriEffect.banri_timeout = setTimeout(() => {
+        GhostBanriEffect.maybeShowBanri();
+      }, GhostBanriEffect.TIME_BETWEEN_ACTIVATIONS_S * 1000);
+      return;
+    }
+
+    GhostBanriEffect.showBanri()
+      .then(() => {
+        clearTimeout(GhostBanriEffect.banri_timeout);
+        GhostBanriEffect.banri_timeout = setTimeout(() => {
+          GhostBanriEffect.maybeShowBanri();
+        }, GhostBanriEffect.TIME_BETWEEN_ACTIVATIONS_S * 1000);
+      });
+  }
+
+  static showBanri() {
+    const img = document.createElement('img');
+    img.src = GhostBanriEffect.BANRI_IMG;
+    img.classList.add('c-effect__banri');
+    document.body.appendChild(img);
+
+    const window_width = window.innerWidth;
+    const window_height = window.innerHeight;
+
+    const min_left = 0;
+    const max_left = window_width - 40;
+    const min_top = 0;
+    const max_top = window_height - 40;
+
+    img.style.top = getRandomInt(min_left, max_left) + 'px';
+    img.style.left = getRandomInt(min_top, max_top) + 'px';
+    return new Promise((resolve) => {
+      img.addEventListener('animationend', () => {
+        img.parentElement.removeChild(img);
+        resolve();
+      });
+    });
+  }
+
+  static resetDeactivationTimer() {
+    const state = GhostBanriEffect.state;
+    if (GhostBanriEffect.deactivate_timeout) {
+      clearTimeout(GhostBanriEffect.deactivate_timeout);
+      GhostBanriEffect.deactivate_timeout = null;
+    }
+
+    GhostBanriEffect.deactivate_timeout = setTimeout(() => {
+      GhostBanriEffect.disable();
+    }, state.length_minutes * 60 * 1000);
+  }
+}
+GhostBanriEffect.command = '/banri';
+GhostBanriEffect.DEFAULT_LENGTH_MIN = 10 * 60;
+GhostBanriEffect.DEFAULT_INFECTION_RATE = 0.5;
+GhostBanriEffect.TIME_BETWEEN_ACTIVATIONS_S = 30;
+GhostBanriEffect.BANRI_IMG = `${SCRIPT_FOLDER_URL}/Images/ghost-banri.png`;
+
+
+
 /**
  * To add a new effect create a class like so:
 
@@ -3643,12 +4220,16 @@ class YourNewEffect {
 Then add it to the `effects` static variable below
 */
 class CustomTextTriggers {
-
-
-
     static init() {
         // Only place you need to add a new effect to make it work
-        CustomTextTriggers.effects = [ErabeEffect, /*SnowEffect, */PadoruEffect, PresentsEffect];
+        CustomTextTriggers.effects = [
+					ErabeEffect,
+					PadoruEffect,
+					PresentsEffect,
+					GhostBanriEffect,
+					SnowEffect,
+					ChristmasWonderlandEffect,
+				];
         if (CustomTextTriggers.has_init) {
             return;
         }
@@ -3658,17 +4239,17 @@ class CustomTextTriggers {
         CustomTextTriggers.effect_lookup = new Map();
         for (let effect_cls of CustomTextTriggers.effects) {
             effect_cls.init();
-            CustomTextTriggers.effect_lookup.set(effect_cls.command, 
+            CustomTextTriggers.effect_lookup.set(effect_cls.command,
                 {effect: effect_cls, handle: effect_cls.handleCommand});
         }
 
         // TODO make this "/effects arg" with some kind of handler?
         // Add non-effect commands here
-        CustomTextTriggers.effect_lookup.set('/effects_disable', 
+        CustomTextTriggers.effect_lookup.set('/effects_disable',
             {effect: null, handle: CustomTextTriggers.disableEffects});
-        CustomTextTriggers.effect_lookup.set('/effects_enable', 
+        CustomTextTriggers.effect_lookup.set('/effects_enable',
             {effect: null, handle: CustomTextTriggers.enableEffects});
-        CustomTextTriggers.effect_lookup.set('/effects_stop', 
+        CustomTextTriggers.effect_lookup.set('/effects_stop',
             {effect: null, handle: CustomTextTriggers.stopEffects});
 
         // testing
@@ -3785,3 +4366,16 @@ $('<button id="effectsbtn" class="btn btn-sm ' + (EFFECTSOFF ? 'btn-danger' : 'b
 // This is what turns the whole thing on to be run by chat messages like /erabe
 // TODO: Should we hide this behind a button being enabled? Like niconico is?
 socket.on("chatMsg", CustomTextTriggers.handleChatMessage);
+
+
+spambtn = $('<button id="spambtn" class="btn btn-sm ' + (ANTISPAM ? 'btn-danger' : 'btn-default') + '" title="Blocks all unicode characters and duplicate words during shows. Red means it is blocking.">アミ a m i あみ</button>')
+	.appendTo("#chatwrap")
+	.on("click", function() {
+		ANTISPAM = !ANTISPAM;
+		setOpt(CHANNEL.name + "_ANTISPAM", ANTISPAM);
+		if (ANTISPAM) {
+			this.className = "btn btn-sm btn-danger";
+		} else {
+			this.className = "btn btn-sm btn-default";
+		}
+	});
